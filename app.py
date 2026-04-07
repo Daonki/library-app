@@ -343,7 +343,9 @@ with tab_stat:
                     f"지금 전국 공공도서관 현황을 리포트 형식으로 요약해줘. "
                     f"전체 {len(df_merged)}개 도서관 기준으로 "
                     f"지역별 혼잡도 현황, 가장 여유로운 곳과 혼잡한 곳, "
-                    f"지금 당장 가기 좋은 도서관 TOP 3를 포함해서 정리해줘."
+                    f"지금 당장 가기 좋은 도서관 TOP 3를 포함해서 정리해줘. "
+                    f"마크다운 헤더(#)는 사용하지 말고, 섹션 제목은 **볼드** 처리해줘. "
+                    f"읽기 쉽고 자연스러운 문장으로 작성해줘."
                 )
                 report_history = [{"role": "user", "content": report_question}]
                 report = ask_ai_chat(report_history, df_merged, df_seat)
