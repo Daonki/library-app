@@ -347,7 +347,11 @@ with tab_stat:
                 )
                 report_history = [{"role": "user", "content": report_question}]
                 report = ask_ai_chat(report_history, df_merged, df_seat)
-                st.success(report)
+                report_clean = "\n".join(
+                    line.lstrip("#").strip() if line.startswith("#") else line
+                    for line in report.split("\n")
+                )
+                st.markdown(report_clean)
             except Exception as e:
                 st.error(f"리포트 생성 오류: {e}")
 
