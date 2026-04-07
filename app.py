@@ -1,6 +1,7 @@
 import streamlit as st
 import folium
 from streamlit_folium import folium_static
+import streamlit.components.v1 as components
 import pandas as pd
 from datetime import datetime
 
@@ -109,11 +110,10 @@ with stat_cols[3]:
 st.divider()
 
 # ── 탭 구성 ─────────────────────────────────────────────────
-tab_map, tab_list, tab_stat, tab_ai = st.tabs(["🗺️ 지도", "📋 목록", "📊 통계", "💬 AI 추천"])
+tab_map, tab_list, tab_stat, tab_ai = st.tabs(["🗺️ 지도", "📋 목록", "📊 통계", "🤖 AI 추천"])
 
-# ── 탭1: 지도 ───────────────────────────────────────────────
+# ── 탭1: 지도 (카카오맵) ─────────────────────────────────────
 with tab_map:
-    # 필터
     regions = ["전체"] + sorted(df_merged["ctpvNm"].dropna().unique().tolist())
     col_f1, col_f2, col_f3 = st.columns([2, 2, 2])
     sel_region = col_f1.selectbox("지역 필터", regions)
@@ -127,67 +127,138 @@ with tab_map:
     if "operSttsNm" in df_filtered.columns:
         df_filtered = df_filtered[df_filtered["operSttsNm"].isin(sel_oper)]
 
+    # 카카오맵 JS 키
+    try:
+        kakao_key = st.secrets["KAKAO_JS_KEY"]
+    except:
+        kakao_key = ""
 
-
-    # 지도 생성
-    center_lat = df_filtered["lat"].mean() if len(df_filtered) > 0 else 36.5
-    center_lot = df_filtered["lot"].mean() if len(df_filtered) > 0 else 127.5
-    m = folium.Map(
-        location=[center_lat, center_lot],
-        zoom_start=8 if sel_region != "전체" else 7,
-        tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        attr='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        min_zoom=6,
-        max_bounds=True,
-    )
-    m.fit_bounds([[33.0, 124.5], [38.9, 132.0]])
-
-    color_map = {"여유": "green", "보통": "orange", "혼잡": "red"}
-
+    # 마커 데이터 생성
+    markers_js = ""
+    color_map = {"여유": "#1D9E75", "보통": "#BA7517", "혼잡": "#E24B4A"}
     for _, row in df_filtered.iterrows():
-        color = color_map.get(row["status"], "gray")
+        color = color_map.get(row["status"], "#888888")
         open_str = fmt_time(row["wkdyOperBgngTm"])
         close_str = fmt_time(row["wkdyOperEndTm"])
         oper = row.get("operSttsNm", "정보없음")
-        oper_color = "#1D9E75" if oper == "운영중" else "#888888"
-        popup_html = f"""
-        <div style='font-family:sans-serif; min-width:160px'>
-          <b style='font-size:14px'>{row['pblibNm']}</b><br>
-          <span style='background:{oper_color};color:white;padding:1px 6px;border-radius:4px;font-size:11px'>{oper}</span>
-          <span style='color:{"#1D9E75" if row["status"]=="여유" else "#BA7517" if row["status"]=="보통" else "#E24B4A"}'>
-            &nbsp;● {row['status']}</span><br>
-          잔여석: <b>{int(row['rmnd_seats'])}</b> / {int(row['total_seats'])}석<br>
-          운영: {open_str} ~ {close_str}<br>
-          <small style='color:{get_freshness(row.get("latest_update"))[1]}'>{get_freshness(row.get("latest_update"))[0]}</small><br>
-          <small>{row['pblibRoadNmAddr']}</small>
-        </div>"""
-        folium.CircleMarker(
-            location=[row["lat"], row["lot"]],
-            radius=10,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.75,
-            popup=folium.Popup(popup_html, max_width=220),
-            tooltip=f"{row['pblibNm']} ({row['status']}) | 잔여 {int(row['rmnd_seats'])}석"
-        ).add_to(m)
+        name = str(row["pblibNm"]).replace("'", "\'").replace('"', '\"')
+        addr = str(row["pblibRoadNmAddr"]).replace("'", "\'").replace('"', '\"')
+        freshness = get_freshness(row.get("latest_update"))[0]
 
-    folium_static(m, width=1200, height=520)
+        markers_js += f"""
+        addMarker(
+            {row['lat']}, {row['lot']},
+            '{name}', '{row['status']}', '{color}',
+            {int(row['rmnd_seats'])}, {int(row['total_seats'])},
+            '{open_str}~{close_str}', '{oper}', '{addr}', '{freshness}'
+        );"""
 
-    # 범례 (지도 아래)
+    center_lat = df_filtered["lat"].mean() if len(df_filtered) > 0 else 36.5
+    center_lon = df_filtered["lot"].mean() if len(df_filtered) > 0 else 127.5
+    zoom = 10 if sel_region != "전체" else 8
+
+    kakao_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {{ margin:0; padding:0; }}
+    #map {{ width:100%; height:560px; }}
+    .info-window {{
+      font-family: sans-serif;
+      font-size: 13px;
+      padding: 8px;
+      min-width: 180px;
+      line-height: 1.6;
+    }}
+    .badge {{
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: white;
+      margin-right: 4px;
+    }}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script type="text/javascript"
+    src="//dapi.kakao.com/v2/maps/sdk.js?appkey={kakao_key}&autoload=false">
+  </script>
+  <script>
+    kakao.maps.load(function() {{
+      var container = document.getElementById('map');
+      var options = {{
+        center: new kakao.maps.LatLng({center_lat}, {center_lon}),
+        level: {zoom}
+      }};
+      var map = new kakao.maps.Map(container, options);
+      var infowindow = new kakao.maps.InfoWindow({{zIndex:1}});
+
+      function addMarker(lat, lon, name, status, color, rmnd, total, hours, oper, addr, freshness) {{
+        var position = new kakao.maps.LatLng(lat, lon);
+        var markerImage = new kakao.maps.MarkerImage(
+          'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png',
+          new kakao.maps.Size(24, 35)
+        );
+
+        var circle = document.createElement('canvas');
+        circle.width = 24; circle.height = 24;
+        var ctx = circle.getContext('2d');
+        ctx.beginPath();
+        ctx.arc(12, 12, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        var marker = new kakao.maps.Marker({{
+          position: position,
+          map: map
+        }});
+
+        var operColor = oper === '운영중' ? '#1D9E75' : '#888888';
+        var content = '<div class="info-window">' +
+          '<b style="font-size:14px">' + name + '</b><br>' +
+          '<span class="badge" style="background:' + operColor + '">' + oper + '</span>' +
+          '<span style="color:' + color + '">● ' + status + '</span><br>' +
+          '잔여석: <b>' + rmnd + '</b> / ' + total + '석<br>' +
+          '운영: ' + hours + '<br>' +
+          '<small style="color:#888">' + freshness + '</small><br>' +
+          '<small>' + addr + '</small>' +
+          '</div>';
+
+        kakao.maps.event.addListener(marker, 'click', function() {{
+          infowindow.setContent(content);
+          infowindow.open(map, marker);
+        }});
+      }}
+
+      {markers_js}
+    }});
+  </script>
+</body>
+</html>"""
+
+    components.html(kakao_html, height=570)
+
+    # 범례
     st.markdown(f"""
     <div style='display:flex;gap:24px;align-items:center;padding:8px 4px;font-size:13px;'>
       <span style='font-weight:600;color:#444'>혼잡도</span>
       <span style='display:flex;align-items:center;gap:6px'>
-        <span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#2ca25f'></span>
+        <span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#1D9E75'></span>
         <b>여유</b>
       </span>
       <span style='display:flex;align-items:center;gap:6px'>
-        <span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#fd8d3c'></span>
+        <span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#BA7517'></span>
         <b>보통</b>
       </span>
       <span style='display:flex;align-items:center;gap:6px'>
-        <span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#e31a1c'></span>
+        <span style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#E24B4A'></span>
         <b>혼잡</b>
       </span>
       <span style='color:#ddd;margin:0 4px'>|</span>
@@ -333,7 +404,7 @@ with tab_stat:
 
     # AI 리포트 생성 버튼
     st.divider()
-    st.markdown("**💬 AI 현황 리포트**")
+    st.markdown("**🤖 AI 현황 리포트**")
     st.caption("현재 데이터를 기반으로 AI가 전국 도서관 현황을 요약해드려요")
 
     if st.button("✨ 지금 현황 리포트 생성", type="primary"):
@@ -343,17 +414,11 @@ with tab_stat:
                     f"지금 전국 공공도서관 현황을 리포트 형식으로 요약해줘. "
                     f"전체 {len(df_merged)}개 도서관 기준으로 "
                     f"지역별 혼잡도 현황, 가장 여유로운 곳과 혼잡한 곳, "
-                    f"지금 당장 가기 좋은 도서관 TOP 3를 포함해서 정리해줘. "
-                    f"마크다운 헤더(#)는 사용하지 말고, 섹션 제목은 **볼드** 처리해줘. "
-                    f"읽기 쉽고 자연스러운 문장으로 작성해줘."
+                    f"지금 당장 가기 좋은 도서관 TOP 3를 포함해서 정리해줘."
                 )
                 report_history = [{"role": "user", "content": report_question}]
                 report = ask_ai_chat(report_history, df_merged, df_seat)
-                report_clean = "\n".join(
-                    line.lstrip("#").strip() if line.startswith("#") else line
-                    for line in report.split("\n")
-                )
-                st.markdown(report_clean)
+                st.success(report)
             except Exception as e:
                 st.error(f"리포트 생성 오류: {e}")
 
@@ -367,7 +432,7 @@ with tab_stat:
 
 # ── 탭4: AI 추천 (대화형 채팅) ───────────────────────────────
 with tab_ai:
-    st.subheader("💬 AI 도서관 추천")
+    st.subheader("🤖 AI 도서관 추천")
     st.caption("GPT-4o-mini 기반 · 실시간 잔여석 데이터를 참고해 추천해드려요 · 이어서 대화할 수 있어요")
 
     # 채팅 히스토리 초기화
@@ -379,8 +444,8 @@ with tab_ai:
             }
         ]
 
-    # 예시 질문 버튼
-    ex_cols = st.columns(4)
+    # 예시 질문 버튼 + 대화 초기화
+    ex_cols = st.columns([3, 3, 3, 3, 1])
     now_hour = datetime.now().hour
     examples = [
         "지금 당장 갈 수 있는 도서관 추천해줘",
@@ -399,9 +464,15 @@ with tab_ai:
                     st.session_state.chat_history.append({"role": "assistant", "content": f"오류가 발생했어요: {e}"})
             st.rerun()
 
+    if ex_cols[4].button("🔄", help="대화 초기화", use_container_width=True):
+        st.session_state.chat_history = [
+            {"role": "assistant", "content": "안녕하세요! 저는 전국 공공도서관 실시간 잔여석 데이터를 보고 있는 AI예요 📚\n\n지역, 혼잡도, 운영시간 등 원하는 조건을 자유롭게 말씀해주세요!"}
+        ]
+        st.rerun()
+
     # 채팅 메시지 출력
     for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"], avatar="assistant" if msg["role"] == "assistant" else "👤"):
+        with st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "👤"):
             st.markdown(msg["content"])
 
     # 채팅 입력창
@@ -410,7 +481,7 @@ with tab_ai:
         with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
 
-        with st.chat_message("assistant", avatar="assistant"):
+        with st.chat_message("assistant", avatar="🤖"):
             with st.spinner("분석 중..."):
                 try:
                     answer = ask_ai_chat(st.session_state.chat_history, df_merged, df_seat)
