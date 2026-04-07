@@ -4,7 +4,7 @@ from streamlit_folium import folium_static
 import pandas as pd
 from datetime import datetime
 
-from api import fetch_library_info, fetch_seat_info, fetch_oper_status, build_merged_df, fmt_time, get_room_detail, get_freshness
+from api import fetch_library_info, fetch_seat_info, fetch_oper_status, build_merged_df, fmt_time, fmt_tel, get_room_detail, get_freshness
 from ai import ask_ai, ask_ai_chat
 
 # ── 페이지 설정 ──────────────────────────────────────────────
@@ -240,7 +240,7 @@ with tab_list:
             c1.write(f"**휴관일** {row['clsrInfoExpln']}")
             c1.write(f"**주소** {row['pblibRoadNmAddr']}")
             if pd.notna(row.get("pblibTelno")) and str(row.get("pblibTelno","")).strip():
-                c1.write(f"**전화** {row['pblibTelno']}")
+                c1.write(f"**전화** {fmt_tel(str(row['pblibTelno']))}")
             # 홈페이지 바로가기
             site = str(row.get("siteUrlAddr", "")).strip()
             if site and site != "nan" and site.startswith("http"):
@@ -395,7 +395,7 @@ with tab_ai:
 
     # 채팅 메시지 출력
     for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "👤"):
+        with st.chat_message(msg["role"], avatar="assistant" if msg["role"] == "assistant" else "👤"):
             st.markdown(msg["content"])
 
     # 채팅 입력창
@@ -404,7 +404,7 @@ with tab_ai:
         with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
 
-        with st.chat_message("assistant", avatar="🤖"):
+        with st.chat_message("assistant", avatar="assistant"):
             with st.spinner("분석 중..."):
                 try:
                     answer = ask_ai_chat(st.session_state.chat_history, df_merged, df_seat)
