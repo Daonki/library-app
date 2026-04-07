@@ -109,7 +109,7 @@ with stat_cols[3]:
 st.divider()
 
 # ── 탭 구성 ─────────────────────────────────────────────────
-tab_map, tab_list, tab_stat, tab_ai = st.tabs(["🗺️ 지도", "📋 목록", "📊 통계", "🤖 AI 추천"])
+tab_map, tab_list, tab_stat, tab_ai = st.tabs(["🗺️ 지도", "📋 목록", "📊 통계", "💬 AI 추천"])
 
 # ── 탭1: 지도 ───────────────────────────────────────────────
 with tab_map:
@@ -333,7 +333,7 @@ with tab_stat:
 
     # AI 리포트 생성 버튼
     st.divider()
-    st.markdown("**🤖 AI 현황 리포트**")
+    st.markdown("**💬 AI 현황 리포트**")
     st.caption("현재 데이터를 기반으로 AI가 전국 도서관 현황을 요약해드려요")
 
     if st.button("✨ 지금 현황 리포트 생성", type="primary"):
@@ -361,7 +361,7 @@ with tab_stat:
 
 # ── 탭4: AI 추천 (대화형 채팅) ───────────────────────────────
 with tab_ai:
-    st.subheader("🤖 AI 도서관 추천")
+    st.subheader("💬 AI 도서관 추천")
     st.caption("GPT-4o-mini 기반 · 실시간 잔여석 데이터를 참고해 추천해드려요 · 이어서 대화할 수 있어요")
 
     # 채팅 히스토리 초기화
