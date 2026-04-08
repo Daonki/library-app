@@ -135,7 +135,7 @@ with tab_map:
     m = folium.Map(
         location=[center_lat, center_lot],
         zoom_start=8 if sel_region != "전체" else 7,
-        tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        tiles="OpenStreetMap",
         attr='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
         min_zoom=6,
         max_bounds=True,
