@@ -60,7 +60,9 @@ def ask_ai(question: str, df_merged: pd.DataFrame) -> str:
     system_prompt = """당신은 공공도서관 열람실 안내 AI입니다.
 실시간 잔여석 데이터를 바탕으로 사용자에게 가장 적합한 도서관을 추천해주세요.
 답변은 한국어로 친절하고 간결하게 작성하고, 추천 이유와 잔여석 정보를 포함해주세요.
-데이터에 없는 정보는 지어내지 마세요."""
+데이터에 없는 정보는 절대 지어내지 마세요.
+반드시 아래 제공된 도서관 목록에 있는 도서관만 언급하세요.
+목록에 없는 도서관 이름이 나오면 "해당 도서관은 데이터에 없습니다"라고 명확히 안내하세요."""
 
     user_prompt = f"""현재 전국 공공도서관 열람실 실시간 현황입니다:
 
@@ -84,10 +86,12 @@ def ask_ai(question: str, df_merged: pd.DataFrame) -> str:
 def ask_ai_chat(chat_history: list, df_merged, df_seat=None) -> str:
     """대화 히스토리 전체를 GPT에 넘겨서 이어서 대화"""
     from datetime import datetime
+    import pytz
     client = get_client()
     context = build_context(df_merged, df_seat)
 
-    now = datetime.now()
+    kst = pytz.timezone("Asia/Seoul")
+    now = datetime.now(kst)
     hour = now.hour
     weekday = ["월", "화", "수", "목", "금", "토", "일"][now.weekday()]
     time_context = f"현재 시각: {now.strftime('%Y년 %m월 %d일')} ({weekday}요일) {hour}시"
@@ -129,7 +133,9 @@ def ask_ai_chat(chat_history: list, df_merged, df_seat=None) -> str:
 실시간 잔여석 데이터를 바탕으로 사용자에게 가장 적합한 도서관을 추천하고 질문에 답변하세요.
 답변은 한국어로 친절하고 간결하게 작성하고, 추천 이유와 잔여석 정보를 포함해주세요.
 이전 대화 내용을 기억하고 자연스럽게 이어서 대화하세요.
-데이터에 없는 정보는 지어내지 마세요.
+데이터에 없는 정보는 절대 지어내지 마세요.
+반드시 아래 제공된 도서관 목록에 있는 도서관만 언급하세요.
+목록에 없는 도서관 이름이 나오면 "해당 도서관은 데이터에 없습니다"라고 명확히 안내하세요.
 
 {time_context}
 시간대 특성: {time_hint}
