@@ -329,6 +329,7 @@ with tab_stat:
     import plotly.express as px
     import plotly.graph_objects as go
     from datetime import datetime as dt
+    import pytz
 
     st.subheader("📊 지역별 도서관 현황")
 
@@ -352,7 +353,8 @@ with tab_stat:
     hours = list(range(7, 23))
     weekday_pattern = [10, 20, 35, 50, 60, 70, 75, 65, 55, 65, 75, 80, 70, 55, 40, 25]
     weekend_pattern = [5, 15, 30, 50, 65, 75, 80, 75, 65, 70, 75, 70, 60, 45, 30, 15]
-    now_hour = dt.now().hour
+    kst = pytz.timezone("Asia/Seoul")
+    now_hour = dt.now(kst).hour
 
     fig_time = go.Figure()
     fig_time.add_trace(go.Scatter(
