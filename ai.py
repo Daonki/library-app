@@ -27,10 +27,13 @@ def build_context(df_merged: pd.DataFrame, df_seat: pd.DataFrame = None) -> str:
         oper = row.get("operSttsNm", "")
         oper_str = f", 운영상태={oper}" if oper else ""
 
+        clsr = str(row.get("clsrInfoExpln", "")).strip()
+        clsr_str = f", 휴관일={clsr}" if clsr and clsr != "nan" else ""
+
         lib_line = (
             f"- {row['pblibNm']} ({row['ctpvNm']} {row['sggNm']}): "
             f"잔여 {int(row['rmnd_seats'])}/{int(row['total_seats'])}석, "
-            f"혼잡도={row['status']}, 운영시간={open_str}~{close_str}{oper_str}"
+            f"혼잡도={row['status']}, 운영시간={open_str}~{close_str}{oper_str}{clsr_str}"
         )
 
         # 열람실 상세 추가
