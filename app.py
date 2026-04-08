@@ -287,6 +287,40 @@ with tab_stat:
     df_stat["평균잔여석"] = df_stat["평균잔여석"].round(0).astype(int)
     df_stat = df_stat.sort_values("평균사용률", ascending=True)
 
+    # AI 리포트 생성 버튼
+    st.markdown("**💬 AI 현황 리포트**")
+    st.caption("현재 데이터를 기반으로 AI가 전국 도서관 현황을 요약해드려요")
+
+    if st.button("✨ 지금 현황 리포트 생성", type="primary"):
+        with st.spinner("AI가 분석 중..."):
+            try:
+                report_question = (
+                    f"지금 전국 공공도서관 현황을 리포트 형식으로 요약해줘. "
+                    f"전체 {len(df_merged)}개 도서관 기준으로 "
+                    f"지역별 혼잡도 현황, 가장 여유로운 곳과 혼잡한 곳, "
+                    f"지금 당장 가기 좋은 도서관 TOP 3를 포함해서 정리해줘. "
+                    f"마크다운 헤더(#)는 사용하지 말고, 섹션 제목은 **볼드** 처리해줘. "
+                    f"읽기 쉽고 자연스러운 문장으로 작성해줘."
+                )
+                report_history = [{"role": "user", "content": report_question}]
+                report = ask_ai_chat(report_history, df_merged, df_seat)
+                report_clean = "\n".join(
+                    line.lstrip("#").strip() if line.startswith("#") else line
+                    for line in report.split("\n")
+                )
+                st.markdown(report_clean)
+            except Exception as e:
+                st.error(f"리포트 생성 오류: {e}")
+
+    # 요약 테이블
+    st.markdown("**지역별 상세 현황**")
+    df_display = df_stat[["ctpvNm", "도서관수", "전체잔여석", "전체좌석", "평균사용률"]].copy()
+    df_display.columns = ["지역", "도서관 수", "잔여석", "전체좌석", "평균 사용률 (%)"]
+    df_display = df_display.sort_values("평균 사용률 (%)", ascending=False)
+    st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+    st.divider()
+    
     col_c1, col_c2 = st.columns(2)
 
     with col_c1:
@@ -330,39 +364,6 @@ with tab_stat:
             xaxis_title="도서관 수"
         )
         st.plotly_chart(fig2, use_container_width=True)
-
-    # AI 리포트 생성 버튼
-    st.divider()
-    st.markdown("**💬 AI 현황 리포트**")
-    st.caption("현재 데이터를 기반으로 AI가 전국 도서관 현황을 요약해드려요")
-
-    if st.button("✨ 지금 현황 리포트 생성", type="primary"):
-        with st.spinner("AI가 분석 중..."):
-            try:
-                report_question = (
-                    f"지금 전국 공공도서관 현황을 리포트 형식으로 요약해줘. "
-                    f"전체 {len(df_merged)}개 도서관 기준으로 "
-                    f"지역별 혼잡도 현황, 가장 여유로운 곳과 혼잡한 곳, "
-                    f"지금 당장 가기 좋은 도서관 TOP 3를 포함해서 정리해줘. "
-                    f"마크다운 헤더(#)는 사용하지 말고, 섹션 제목은 **볼드** 처리해줘. "
-                    f"읽기 쉽고 자연스러운 문장으로 작성해줘."
-                )
-                report_history = [{"role": "user", "content": report_question}]
-                report = ask_ai_chat(report_history, df_merged, df_seat)
-                report_clean = "\n".join(
-                    line.lstrip("#").strip() if line.startswith("#") else line
-                    for line in report.split("\n")
-                )
-                st.markdown(report_clean)
-            except Exception as e:
-                st.error(f"리포트 생성 오류: {e}")
-
-    # 요약 테이블
-    st.markdown("**지역별 상세 현황**")
-    df_display = df_stat[["ctpvNm", "도서관수", "전체잔여석", "전체좌석", "평균사용률"]].copy()
-    df_display.columns = ["지역", "도서관 수", "잔여석", "전체좌석", "평균 사용률 (%)"]
-    df_display = df_display.sort_values("평균 사용률 (%)", ascending=False)
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
 
 
 # ── 탭4: AI 추천 (대화형 채팅) ───────────────────────────────
